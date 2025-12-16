@@ -25,6 +25,7 @@ log = lambda msg: print(msg, file=sys.stderr)
 # Shared state between Flask and MCP server
 operation_queue = deque()
 latest_image = {"base64": None, "timestamp": None}
+queue_lock = threading.Lock()  # Lock to prevent race conditions between Flask and MCP threads
 
 
 @app.route("/")
@@ -63,10 +64,23 @@ def upload_image():
 
 @app.route("/operation", methods=['GET'])
 def operation():
+    """
+    Get the next operation from the queue.
+    This endpoint is polled by Buddy to get commands to execute.
+    """
+    # Log queue state for debugging
+    queue_id = id(operation_queue)
+    queue_size = len(operation_queue)
+    log(f"[/operation] Polled - Queue size: {queue_size} (Queue ID: {queue_id})")
+    
     if operation_queue:
-        op = operation_queue.popleft()
+        with queue_lock:
+            op = operation_queue.popleft()
+        log(f"[/operation] Returning operation: {op}")
         return jsonify({"status": "success", "operation": op}), 200
-    return jsonify({"status": "success", "operation": None}), 400
+    
+    log(f"[/operation] No operations in queue")
+    return jsonify({"status": "success", "operation": None}), 200
 
 def run_cli():
     """Run interactive CLI for controlling Buddy."""
@@ -208,7 +222,7 @@ if __name__ == '__main__':
         from mcp_server import run_server
         
         # Initialize shared state for buddy functions (used by MCP tools)
-        init_shared_state(operation_queue, latest_image)
+        init_shared_state(operation_queue, latest_image, queue_lock)
         
         # Suppress Flask/Werkzeug request logging (it goes to stdout and breaks MCP)
         werkzeug_log = logging.getLogger('werkzeug')

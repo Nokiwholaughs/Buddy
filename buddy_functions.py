@@ -33,7 +33,13 @@ def queue_operation(operation: dict, message: str):
     """Queue an operation and return response with JSON debug info."""
     with queue_lock:
         operation_queue.append(operation)
+        queue_size = len(operation_queue)
+        queue_id = id(operation_queue)
+    
+    # Log with queue details for debugging
     log(f"Queued: {json.dumps(operation)}")
+    log(f"Queue size after append: {queue_size} (Queue ID: {queue_id})")
+    
     return [TextContent(type="text", text=f"{message}\n\nOperation JSON:\n```json\n{json.dumps(operation, indent=2)}\n```")]
 
 
