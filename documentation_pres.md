@@ -1229,28 +1229,6 @@ def build_operation(name: str, **kwargs) -\> dict:
 
 Créer `mcp_server.py` **complet** :
 
-**CONTINUATION dans le prochain message (limite de longueur atteinte)...**
-
-Voulez-vous que je continue avec le code complet de `mcp_server.py` et les sections restantes (Configuration, Déploiement, etc.) ? 📝
-# 🤖 FlaskBuddy - Documentation Partie 2
-
-> **Continuation du guide complet - Serveur MCP, Configuration, Déploiement et Tests**
-
----
-
-## 📑 Contenu de cette partie
-
-- [Code complet mcp_server.py](#code-complet-mcp_serverpy)
-- [Configuration Claude Desktop](#-configuration-claude-desktop)
-- [Déploiement & Tests](#-déploiement--tests)
-- [Utilisation avancée](#-utilisation-avancée)
-- [Troubleshooting détaillé](#-troubleshooting-détaillé)
-- [Développement & Contribution](#-développement--contribution)
-
----
-
-## Code complet mcp_server.py
-
 ### Étape 5 : Serveur MCP (mcp_server.py)
 
 Créer le fichier `mcp_server.py` avec le code **complet** suivant :
