@@ -26,16 +26,22 @@ def start_flask():
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
 
 
-def start_mcp_server():
+def start_mcp_server(operation_queue, latest_image, queue_lock):
     """Start MCP HTTP/SSE server"""
     import uvicorn
     from mcp_http_server import mcp_asgi_app
+    from buddy_functions import init_shared_state
+    
+    # Initialize shared state for MCP tools
+    init_shared_state(operation_queue, latest_image, queue_lock)
     
     log("Starting MCP HTTP/SSE server on port 5001")
     uvicorn.run(mcp_asgi_app, host="0.0.0.0", port=5001, log_level="info")
 
 
 if __name__ == "__main__":
+    from api import operation_queue, latest_image, queue_lock
+    
     log("=" * 60)
     log("Starting Buddy MCP Server System")
     log("Flask API (robot control): http://0.0.0.0:5000")
@@ -46,6 +52,10 @@ if __name__ == "__main__":
     flask_thread = threading.Thread(target=start_flask, daemon=True)
     flask_thread.start()
     
+    # Wait a moment for Flask to initialize
+    import time
+    time.sleep(2)
+    
     # Start MCP server in main thread
-    start_mcp_server()
+    start_mcp_server(operation_queue, latest_image, queue_lock)
 
