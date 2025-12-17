@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from collections import deque
 from datetime import datetime
 import threading
@@ -9,6 +9,8 @@ import os
 import tempfile
 from io import BytesIO
 from PIL import Image
+import asyncio
+import json as json_module
 
 app = Flask(__name__)
 
@@ -81,6 +83,69 @@ def operation():
     
     log(f"[/operation] No operations in queue")
     return jsonify({"status": "success", "operation": None}), 200
+
+@app.route("/mcp", methods=['GET', 'POST'])
+def mcp_endpoint():
+    """
+    MCP endpoint for ChatGPT connector integration via SSE.
+    This endpoint handles the Model Context Protocol over HTTP/SSE transport.
+    """
+    log(f"[/mcp] MCP endpoint accessed - Method: {request.method}")
+    
+    # Import MCP components
+    try:
+        from mcp.server.sse import SseServerTransport
+        from mcp_server import app as mcp_app
+    except ImportError as e:
+        log(f"[/mcp] Error importing MCP SSE: {e}")
+        return jsonify({"error": "MCP SSE transport not available", "details": str(e)}), 500
+    
+    try:
+        # Create SSE transport with message endpoint
+        sse_transport = SseServerTransport("/mcp/messages")
+        
+        # Handle SSE requests
+        async def handle_sse():
+            async with sse_transport.connect_sse(
+                request.environ,
+                lambda: Response(status=200)
+            ) as streams:
+                await mcp_app.run(
+                    streams[0],
+                    streams[1],
+                    mcp_app.create_initialization_options()
+                )
+        
+        # Run async handler in sync context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(handle_sse())
+        finally:
+            loop.close()
+        
+        return Response(status=200)
+        
+    except Exception as e:
+        log(f"[/mcp] Error handling MCP request: {e}")
+        import traceback
+        log(f"[/mcp] Traceback: {traceback.format_exc()}")
+        return jsonify({"error": "MCP request failed", "details": str(e)}), 500
+
+@app.route("/mcp/messages", methods=['POST'])
+def mcp_messages():
+    """
+    Message endpoint for MCP SSE transport.
+    Receives messages from the client (ChatGPT).
+    """
+    log(f"[/mcp/messages] POST received")
+    try:
+        data = request.get_json()
+        log(f"[/mcp/messages] Data: {data}")
+        return jsonify({"status": "received"}), 200
+    except Exception as e:
+        log(f"[/mcp/messages] Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 def run_cli():
     """Run interactive CLI for controlling Buddy."""
@@ -200,6 +265,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description="Buddy Flask Server")
     parser.add_argument("--cli", action="store_true", help="Run interactive CLI (Flask only, no MCP)")
+    parser.add_argument("--http", action="store_true", help="Run Flask + MCP in HTTP/SSE mode (for Docker/ChatGPT)")
     args = parser.parse_args()
     
     if args.cli:
@@ -215,8 +281,28 @@ if __name__ == '__main__':
         flask_thread.start()
         print("Flask server started on http://0.0.0.0:5000")
         run_cli()
+    elif args.http:
+        # HTTP mode: Flask + MCP server via HTTP/SSE (for Docker and ChatGPT connectors)
+        from buddy_functions import init_shared_state
+        
+        # Initialize shared state for buddy functions (used by MCP tools)
+        init_shared_state(operation_queue, latest_image, queue_lock)
+        
+        # Configure logging
+        werkzeug_log = logging.getLogger('werkzeug')
+        werkzeug_log.setLevel(logging.INFO)
+        
+        log("=" * 60)
+        log("Starting Buddy MCP Server in HTTP/SSE mode")
+        log("Flask API + MCP endpoint running on http://0.0.0.0:5000")
+        log("MCP endpoint: http://0.0.0.0:5000/mcp")
+        log("For ChatGPT connectors, expose via ngrok or Cloudflare Tunnel")
+        log("=" * 60)
+        
+        # Run Flask server (includes /mcp endpoint)
+        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
     else:
-        # Normal mode: Flask + MCP server
+        # Normal mode: Flask + MCP server in stdio mode (for Claude Desktop)
         import asyncio
         from buddy_functions import init_shared_state
         from mcp_server import run_server
@@ -236,5 +322,5 @@ if __name__ == '__main__':
         flask_thread.start()
         log("Flask server started on http://0.0.0.0:5000")
         
-        # Run MCP server in main thread (stdio mode)
+        # Run MCP server in main thread (stdio mode for Claude Desktop)
         asyncio.run(run_server())
