@@ -249,6 +249,122 @@ def multi_action(actions: list):
     return queue_operation(multi_operation, message)
 
 
+def track_person(action: str = None, talk_message: str = None, mood: str = None):
+    """Track a person by taking a photo and optionally executing a tracking action.
+    
+    This is the core building block for autonomous person tracking. The process:
+    1. ALWAYS takes a photo first to see the current state
+    2. Returns the image to Claude for visual analysis
+    3. Claude decides the action based on person position in the image
+    4. Executes the action (rotate OR move, NEVER both) with optional talk/mood
+    
+    Decision Logic (recommended for Claude):
+    - Person on LEFT side → action="rotate_left" (turn to face them)
+    - Person on RIGHT side → action="rotate_right" (turn to face them)
+    - Person CENTERED + FAR → action="move_forward" (approach them)
+    - Person CENTERED + CLOSE → action="stop" or "backup" (maintain distance)
+    - Person NOT VISIBLE → action="search" (slow rotation to find them)
+    
+    IMPORTANT: This guarantees NO conflict between rotate and move since each action
+    is executed separately. This respects the physical constraint of the robot.
+    
+    Parameter Rules:
+    - action: Optional action to execute. If None, only returns photo for analysis.
+    - talk_message: Optional message to say during action (makes tracking interactive)
+    - mood: Optional mood to display during action (adds personality)
+    
+    Supported Actions:
+    - "rotate_left": Turn left 30° at medium speed
+    - "rotate_right": Turn right 30° at medium speed
+    - "move_forward": Move forward 0.3m at normal speed
+    - "backup": Move backward 0.2m at normal speed
+    - "search": Slow rotation 45° left to search for person
+    - "stop": No movement, only talk/mood (when centered and close)
+    
+    Examples:
+    - track_person() 
+      → Just take photo and return for Claude to analyze
+    
+    - track_person("rotate_left", "Je te vois à gauche!") 
+      → Rotate left while announcing the action
+    
+    - track_person("move_forward", "J'arrive!", "happy") 
+      → Move forward happily while talking
+    
+    - track_person("search", "Où es-tu?", "surprised")
+      → Search with slow rotation while asking where they are
+    
+    Typical Tracking Loop:
+    1. track_person() → Photo → Claude analyzes: "Person on left"
+    2. track_person("rotate_left", "Je te vois!") → Rotate + talk
+    3. track_person() → Photo → Claude analyzes: "Person centered but far"
+    4. track_person("move_forward", "J'arrive!", "happy") → Move + talk + smile
+    5. track_person() → Photo → Repeat...
+    """
+    # ALWAYS take a picture first to see current state
+    log("Taking photo for person tracking...")
+    photo_result = take_picture()
+    
+    # If no action specified, just return the photo for Claude to analyze
+    if action is None:
+        log("No action specified - returning photo for analysis")
+        return photo_result
+    
+    # Build list of actions to execute via multi_action
+    actions = []
+    
+    # Add movement/rotation based on action (NEVER both rotate and move!)
+    if action == "rotate_left":
+        actions.append({"type": "rotate", "speed": 50, "angle": -30})
+        log("Action: Rotate left 30°")
+        
+    elif action == "rotate_right":
+        actions.append({"type": "rotate", "speed": 50, "angle": 30})
+        log("Action: Rotate right 30°")
+        
+    elif action == "move_forward":
+        actions.append({"type": "move", "speed": 100, "distance": 0.3})
+        log("Action: Move forward 0.3m")
+        
+    elif action == "backup":
+        actions.append({"type": "move", "speed": 100, "distance": -0.2})
+        log("Action: Backup 0.2m")
+        
+    elif action == "search":
+        # Slow rotation to search for person
+        actions.append({"type": "rotate", "speed": 30, "angle": -45})
+        log("Action: Search with slow rotation")
+        
+    elif action == "stop":
+        # No movement, just talk/mood if specified
+        log("Action: Stop (no movement)")
+        pass
+    
+    else:
+        log(f"Unknown action: {action}")
+        return photo_result + [TextContent(type="text", text=f"Error: Unknown action '{action}'")]
+    
+    # Add optional talk message
+    if talk_message:
+        actions.append({"type": "talk", "message": talk_message})
+        log(f"Adding talk: {talk_message}")
+    
+    # Add optional mood
+    if mood:
+        actions.append({"type": "mood", "mood": mood})
+        log(f"Adding mood: {mood}")
+    
+    # Execute actions if any
+    if actions:
+        multi_result = multi_action(actions)
+        # Combine photo + separator + action result
+        separator = [TextContent(type="text", text="\n--- Tracking Action Executed ---")]
+        return photo_result + separator + multi_result
+    else:
+        # No actions (only "stop" with no talk/mood)
+        return photo_result + [TextContent(type="text", text="Tracking: Stopped (no movement)")]
+
+
 # --- Tool dispatch dictionary ---
 
 TOOL_HANDLERS = {
@@ -259,6 +375,7 @@ TOOL_HANDLERS = {
     "set_mood": set_mood,
     "take_picture": take_picture,
     "multi_action": multi_action,
+    "track_person": track_person,
 }
 
 

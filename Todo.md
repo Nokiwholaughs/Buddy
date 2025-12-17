@@ -1,6 +1,203 @@
 # FlaskBuddy Todo List
 
-## Current Task: Add MultiOperation Support & Improve Command Descriptions
+## Current Task: Create Person Tracking Feature
+**Status**: ✅ COMPLETED
+**Date**: 2025-12-17
+**Priority**: HIGH (New Autonomous Feature)
+
+### Objective:
+Créer une fonction de suivi de personne qui utilise MultiOperation pour :
+- Prendre des photos pour localiser la cible
+- Analyser la position de la personne (gauche/centre/droite, proche/loin)
+- Décider et exécuter l'action appropriée (rotate OU move, jamais ensemble)
+- Combiner avec talk/mood pour des interactions naturelles
+
+### User Story:
+"Je veux que Buddy puisse suivre une personne automatiquement en prenant des photos, en analysant où elle est, et en se déplaçant/tournant pour la garder en vue."
+
+### Contraintes critiques:
+- ❌ **JAMAIS combiner rotate + move** (conflit physique)
+- ✅ Peut combiner : move + talk + mood
+- ✅ Peut combiner : rotate + talk + mood
+- ✅ Utiliser la vision de Claude pour analyser les images
+
+### 3 Options Proposed:
+
+**Option 1: Tool simple "track_step"** (⭐ Recommandée - KISS)
+- Un tool qui fait : photo → analyse → décision → action
+- Claude orchestre la boucle (appelle plusieurs fois le tool)
+- Simple, flexible, facile à débugger
+- Permet d'ajuster la stratégie entre chaque étape
+
+✅ **Avantages**: Simple, respecte KISS, contrôlable
+✅ **Effort**: Faible (1 nouveau tool)
+✅ **Flexibilité**: Claude peut arrêter/modifier à tout moment
+
+**Option 2: Tool avec boucle intégrée "auto_track"**
+- Lance un suivi automatique pendant N secondes
+- Fait photo → décision → action en boucle automatiquement
+- S'arrête après timeout ou condition
+
+✅ **Avantages**: Autonome, fluide
+⚠️ **Inconvénients**: Complexe, difficile à arrêter, peut bloquer
+
+**Option 3: Système avec état et machine à états**
+- États : searching, centering, approaching, following
+- Intelligence avancée avec historique des positions
+- Prédiction des mouvements
+
+✅ **Avantages**: Très intelligent
+⚠️ **Inconvénients**: Over-engineering, complexité élevée
+
+### User Choice: ✅ Option 1 (KISS) - SELECTED & IMPLEMENTED
+
+### Plan (Option 1 - Recommandée):
+1. ✅ Mettre à jour Todo.md avec le plan
+2. ✅ Créer fonction `track_person()` dans `buddy_functions.py`
+   - Prend une photo avec take_picture()
+   - Retourne l'image pour analyse par Claude
+   - Attend que Claude analyse et décide
+   - Exécute l'action recommandée via multi_action
+3. ✅ Ajouter tool `track_person` dans `mcp_server.py`
+   - Description claire du comportement
+   - Paramètres : optionnel (talk message, mood)
+   - Schema JSON simple
+4. ✅ Documentation des stratégies de décision
+   - Personne à gauche → rotate left
+   - Personne à droite → rotate right
+   - Personne centrée + loin → move forward
+   - Personne centrée + proche → stop ou backup
+   - Personne absente → search (slow rotation)
+5. ⏳ Prêt pour test avec Claude Desktop
+
+### Code Changes Required:
+
+**File 1: `buddy_functions.py`**
+- Ajouter fonction `track_person(action: str = None, talk_message: str = None, mood: str = None)`:
+  ```python
+  def track_person(action: str = None, talk_message: str = None, mood: str = None):
+      """Track a person by taking a photo and optionally executing an action.
+      
+      This is a building block for person tracking. Process:
+      1. Takes a photo to see where the person is
+      2. Returns the image to Claude for analysis
+      3. Claude decides the action based on person position
+      4. Execute the action (rotate OR move, never both) with optional talk/mood
+      
+      Decision logic (recommended for Claude):
+      - Person on LEFT → action="rotate_left"
+      - Person on RIGHT → action="rotate_right"
+      - Person CENTERED + FAR → action="move_forward"
+      - Person CENTERED + CLOSE → action="stop" or "backup"
+      - Person NOT VISIBLE → action="search" (slow rotation)
+      
+      Parameters:
+      - action: Action to execute ("rotate_left", "rotate_right", "move_forward", "backup", "search", "stop")
+      - talk_message: Optional message to say during action
+      - mood: Optional mood to display during action
+      
+      Examples:
+      - track_person() → Just take photo and return
+      - track_person("rotate_left", "Je te cherche") → Rotate left while talking
+      - track_person("move_forward", "J'arrive!", "happy") → Move forward happily
+      """
+      # First, ALWAYS take a picture to see current state
+      photo_result = take_picture()
+      
+      # If no action specified, just return the photo for Claude to analyze
+      if action is None:
+          return photo_result
+      
+      # Execute the requested action
+      actions = []
+      
+      # Add movement/rotation based on action
+      if action == "rotate_left":
+          actions.append({"type": "rotate", "speed": 50, "angle": -30})
+      elif action == "rotate_right":
+          actions.append({"type": "rotate", "speed": 50, "angle": 30})
+      elif action == "move_forward":
+          actions.append({"type": "move", "speed": 100, "distance": 0.3})
+      elif action == "backup":
+          actions.append({"type": "move", "speed": 100, "distance": -0.2})
+      elif action == "search":
+          # Slow rotation to search
+          actions.append({"type": "rotate", "speed": 30, "angle": -45})
+      elif action == "stop":
+          # No movement, just talk/mood
+          pass
+      
+      # Add optional talk
+      if talk_message:
+          actions.append({"type": "talk", "message": talk_message})
+      
+      # Add optional mood
+      if mood:
+          actions.append({"type": "mood", "mood": mood})
+      
+      # Execute actions if any
+      if actions:
+          multi_result = multi_action(actions)
+          # Combine photo + action result
+          return photo_result + [TextContent(type="text", text=f"\\n--- Action Executed ---")] + multi_result
+      else:
+          return photo_result
+  ```
+
+**File 2: `mcp_server.py`**
+- Ajouter tool `track_person` dans la liste des tools :
+  ```python
+  Tool(
+      name="track_person",
+      description="Track a person by taking a photo and optionally executing a tracking action. This is the core building block for person following. Call this repeatedly to track someone. IMPORTANT: Analyze the returned image to decide the next action (rotate_left, rotate_right, move_forward, backup, search, stop).",
+      inputSchema={
+          "type": "object",
+          "properties": {
+              "action": {
+                  "type": "string",
+                  "description": "Action to execute based on person position. Choose based on image analysis.",
+                  "enum": ["rotate_left", "rotate_right", "move_forward", "backup", "search", "stop"]
+              },
+              "talk_message": {
+                  "type": "string",
+                  "description": "Optional message to say while executing action (makes tracking more interactive)"
+              },
+              "mood": {
+                  "type": "string",
+                  "description": "Optional mood to display during action",
+                  "enum": ["happy", "sad", "angry", "surprised", "neutral", "afraid", "disgusted", "contempt"]
+              }
+          },
+          "required": []
+      }
+  )
+  ```
+
+- Ajouter import de `track_person`
+
+### Expected Behavior After Implementation:
+
+**Tracking Loop (orchestré par Claude):**
+```
+1. track_person() → Photo + analyse
+2. Claude: "Person is on the left"
+3. track_person("rotate_left", "Je te vois!") → Rotate left + talk
+4. track_person() → Photo + analyse
+5. Claude: "Person is centered but far"
+6. track_person("move_forward", "J'arrive!", "happy") → Move forward + talk + smile
+7. Repeat...
+```
+
+**Avantages:**
+- ✅ Claude garde le contrôle total
+- ✅ Peut ajuster la stratégie en temps réel
+- ✅ Pas de conflits rotate + move (séparés)
+- ✅ Interactions naturelles (talk + mood)
+- ✅ Simple à débugger
+
+---
+
+## Previous Task: Add MultiOperation Support & Improve Command Descriptions
 **Status**: ✅ COMPLETED
 **Date**: 2025-12-16
 **Priority**: HIGH (New Feature + UX Improvement)
