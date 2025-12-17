@@ -147,6 +147,70 @@ def mcp_messages():
         log(f"[/mcp/messages] Error: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/sse", methods=['GET', 'POST'])
+def sse_endpoint():
+    """
+    SSE endpoint for Claude API MCP connector integration.
+    This is the endpoint used by Claude's Messages API with MCP connector.
+    See: https://platform.claude.com/docs/en/agents-and-tools/mcp-connector
+    """
+    log(f"[/sse] SSE endpoint accessed - Method: {request.method}")
+    
+    # Import MCP components
+    try:
+        from mcp.server.sse import SseServerTransport
+        from mcp_server import app as mcp_app
+    except ImportError as e:
+        log(f"[/sse] Error importing MCP SSE: {e}")
+        return jsonify({"error": "MCP SSE transport not available", "details": str(e)}), 500
+    
+    try:
+        # Create SSE transport with message endpoint
+        sse_transport = SseServerTransport("/sse/messages")
+        
+        # Handle SSE requests
+        async def handle_sse():
+            async with sse_transport.connect_sse(
+                request.environ,
+                lambda: Response(status=200)
+            ) as streams:
+                await mcp_app.run(
+                    streams[0],
+                    streams[1],
+                    mcp_app.create_initialization_options()
+                )
+        
+        # Run async handler in sync context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(handle_sse())
+        finally:
+            loop.close()
+        
+        return Response(status=200)
+        
+    except Exception as e:
+        log(f"[/sse] Error handling SSE request: {e}")
+        import traceback
+        log(f"[/sse] Traceback: {traceback.format_exc()}")
+        return jsonify({"error": "SSE request failed", "details": str(e)}), 500
+
+@app.route("/sse/messages", methods=['POST'])
+def sse_messages():
+    """
+    Message endpoint for Claude API SSE transport.
+    Receives messages from Claude's MCP connector.
+    """
+    log(f"[/sse/messages] POST received")
+    try:
+        data = request.get_json()
+        log(f"[/sse/messages] Data: {data}")
+        return jsonify({"status": "received"}), 200
+    except Exception as e:
+        log(f"[/sse/messages] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 def run_cli():
     """Run interactive CLI for controlling Buddy."""
     import json

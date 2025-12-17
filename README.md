@@ -1,6 +1,11 @@
 # Buddy Robot MCP Server
 
-A Model Context Protocol (MCP) server for controlling the Buddy robot through ChatGPT connectors or Claude Desktop. This Flask-based application provides an HTTP API and MCP interface for robot operations including movement, speech, mood changes, head movements, and camera access.
+A Model Context Protocol (MCP) server for controlling the Buddy robot through multiple AI platforms:
+- **Claude API** (via MCP connector in Messages API)
+- **ChatGPT** (via custom connectors)
+- **Claude Desktop** (via stdio mode)
+
+This Flask-based application provides an HTTP API and MCP interface for robot operations including movement, speech, mood changes, head movements, and camera access.
 
 ## Features
 
@@ -14,26 +19,35 @@ A Model Context Protocol (MCP) server for controlling the Buddy robot through Ch
   - stdio mode for Claude Desktop
   - CLI mode for local testing
 
+📘 **See [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) for comprehensive platform-specific setup instructions.**
+
 ## Architecture
 
 ```mermaid
 flowchart TB
-    ChatGPT[ChatGPT with Connector]
+    ClaudeAPI[Claude Messages API]
+    ChatGPT[ChatGPT Connector]
     Tunnel[ngrok/Cloudflare Tunnel]
     Docker[Docker Container]
     Flask[Flask Server :5000]
-    MCP[MCP Server HTTP/SSE]
+    SSEEndpoint[/sse endpoint]
+    MCPEndpoint[/mcp endpoint]
+    MCPServer[MCP Server]
     Queue[Operation Queue]
     BuddyRobot[Buddy Robot]
     
-    ChatGPT -->|HTTPS /mcp| Tunnel
+    ClaudeAPI -->|"HTTPS /sse"| Tunnel
+    ChatGPT -->|"HTTPS /mcp"| Tunnel
     Tunnel -->|HTTP| Docker
     Docker --> Flask
-    Flask --> MCP
-    MCP -->|Queue Operations| Queue
-    BuddyRobot -->|Poll /operation| Flask
-    BuddyRobot -->|POST /upload_image| Flask
-    Flask <-->|Shared Queue| Queue
+    Flask --> SSEEndpoint
+    Flask --> MCPEndpoint
+    SSEEndpoint --> MCPServer
+    MCPEndpoint --> MCPServer
+    MCPServer -->|Queue Operations| Queue
+    BuddyRobot -->|"Poll /operation"| Flask
+    BuddyRobot -->|"POST /upload_image"| Flask
+    Flask <-->|Shared State| Queue
 ```
 
 ## Quick Start with Docker
@@ -102,6 +116,56 @@ This will provide a public HTTPS URL like `https://abc123.ngrok-free.app`
    - "Make Buddy say hello"
    - "Change Buddy's mood to happy"
    - "Take a picture with Buddy's camera"
+
+## Claude API Integration
+
+The server also supports Claude's MCP connector feature for direct API integration without a separate MCP client.
+
+### Using with Claude Messages API
+
+```python
+import anthropic
+
+client = anthropic.Anthropic(api_key="YOUR_API_KEY")
+
+response = client.beta.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1000,
+    messages=[{
+        "role": "user",
+        "content": "Move Buddy forward 1 meter at speed 100"
+    }],
+    mcp_servers=[{
+        "type": "url",
+        "url": "https://your-ngrok-url.ngrok-free.app/sse",
+        "name": "buddy-robot",
+        "authorization_token": "YOUR_TOKEN"  # Optional
+    }],
+    tools=[{
+        "type": "mcp_toolset",
+        "mcp_server_name": "buddy-robot"
+    }],
+    betas=["mcp-client-2025-11-20"]
+)
+```
+
+### Key Differences
+
+| Platform | Endpoint | Setup Method |
+|----------|----------|--------------|
+| **Claude API** | `/sse` | Programmatic API calls with `mcp_servers` parameter |
+| **ChatGPT** | `/mcp` | Web UI connector creation in Settings |
+| **Claude Desktop** | stdio | Local configuration file |
+
+### Claude API Features
+
+- **Direct API integration**: No need for web UI setup
+- **Programmatic control**: Configure MCP servers in code
+- **Tool filtering**: Allowlist/denylist specific tools
+- **Multiple servers**: Connect to multiple MCP servers per request
+- **OAuth support**: Bearer token authentication
+
+For detailed Claude API documentation, see: [Claude MCP Connector Docs](https://platform.claude.com/docs/en/agents-and-tools/mcp-connector)
 
 ## Local Development
 
@@ -224,11 +288,21 @@ Or if queue is empty:
 
 #### `GET/POST /mcp`
 
-Main MCP endpoint for ChatGPT connector integration via SSE transport.
+Main MCP endpoint for **ChatGPT connector** integration via SSE transport.
 
 #### `POST /mcp/messages`
 
 Message endpoint for MCP SSE transport (receives messages from ChatGPT).
+
+#### `GET/POST /sse`
+
+SSE endpoint for **Claude API MCP connector** integration. Used by Claude's Messages API with the `mcp_servers` parameter.
+
+Reference: [Claude MCP Connector Documentation](https://platform.claude.com/docs/en/agents-and-tools/mcp-connector)
+
+#### `POST /sse/messages`
+
+Message endpoint for Claude API SSE transport (receives messages from Claude API).
 
 ## MCP Tools
 
@@ -319,12 +393,19 @@ docker logs -f buddy-server
 2. Check that SSE transport is available in your MCP version
 3. Review server logs for detailed error messages
 
-### ChatGPT connector fails to connect
+### ChatGPT/Claude connector fails to connect
 
 1. Verify ngrok/tunnel is running and accessible
-2. Ensure the URL ends with `/mcp`: `https://your-url.ngrok-free.app/mcp`
+2. Ensure you're using the correct endpoint:
+   - ChatGPT: `https://your-url.ngrok-free.app/mcp`
+   - Claude API: `https://your-url.ngrok-free.app/sse`
 3. Check that port 5000 is exposed and not blocked by firewall
-4. Test the endpoint manually: `curl https://your-url.ngrok-free.app/`
+4. Test the endpoints manually:
+   ```bash
+   curl https://your-url.ngrok-free.app/
+   curl https://your-url.ngrok-free.app/mcp
+   curl https://your-url.ngrok-free.app/sse
+   ```
 
 ### Buddy robot not receiving operations
 
@@ -399,6 +480,22 @@ TOOL_HANDLERS = {
 
 This project is provided as-is for controlling Buddy robots via MCP protocol.
 
+## Additional Resources
+
+### Official MCP Documentation
+- [MCP Specification](https://modelcontextprotocol.io/)
+- [Claude MCP Connector Docs](https://platform.claude.com/docs/en/agents-and-tools/mcp-connector)
+- [OpenAI MCP Documentation](https://platform.openai.com/docs/mcp)
+- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
+
+### Reference Implementations
+- [Official MCP Servers Repository](https://github.com/modelcontextprotocol/servers)
+- [Reference "Everything" Server](https://github.com/modelcontextprotocol/servers/tree/main/src/everything) - Comprehensive example showing all MCP features
+- [Hosted Example Server](https://example-server.modelcontextprotocol.io/mcp) - Live MCP server for testing your client setup
+
+### Testing Tools
+- [MCP Inspector](https://github.com/modelcontextprotocol/inspector) - Visual testing tool for MCP servers
+
 ## Support
 
 For issues or questions:
@@ -406,6 +503,7 @@ For issues or questions:
 2. Review Docker logs: `docker-compose logs -f`
 3. Test with CLI mode: `python api.py --cli`
 4. Verify MCP endpoint manually with curl or browser
+5. Compare with the [official example server](https://example-server.modelcontextprotocol.io/mcp) to verify client setup
 
 ## Changelog
 
