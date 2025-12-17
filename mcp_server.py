@@ -26,6 +26,7 @@ from buddy_functions import (
     move_head,
     set_mood,
     take_picture,
+    multi_action,
     TOOL_HANDLERS
 )
 
@@ -53,19 +54,19 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="move_buddy",
-            description="Move Buddy forward or backward. Use positive distance for forward, negative for backward.",
+            description="Move Buddy forward or backward. IMPORTANT: Speed must always be positive. Direction is controlled by distance sign (+ forward, - backward). Example: move_buddy(speed=100, distance=-0.5) moves backward.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "speed": {
                         "type": "number",
-                        "description": "Movement speed (recommended: 50-200)",
+                        "description": "Movement speed - MUST be positive (recommended: 50-200). Direction is NOT determined by speed.",
                         "minimum": 0,
                         "maximum": 500
                     },
                     "distance": {
                         "type": "number",
-                        "description": "Distance to move in meters. Positive = forward, negative = backward",
+                        "description": "Distance to move in meters. POSITIVE = forward, NEGATIVE = backward. Example: 0.5 moves forward, -0.5 moves backward.",
                     }
                 },
                 "required": ["speed", "distance"]
@@ -73,19 +74,19 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="rotate_buddy",
-            description="Rotate Buddy left or right. Use positive angle for right, negative for left.",
+            description="Rotate Buddy left or right. IMPORTANT: Speed must always be positive. Direction is controlled by angle sign (+ right, - left). Example: rotate_buddy(speed=50, angle=-90) rotates left.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "speed": {
                         "type": "number",
-                        "description": "Rotation speed (recommended: 50-200)",
+                        "description": "Rotation speed - MUST be positive (recommended: 50-200). Direction is NOT determined by speed.",
                         "minimum": 0,
                         "maximum": 500
                     },
                     "angle": {
                         "type": "number",
-                        "description": "Angle to rotate in degrees. Positive = right, negative = left",
+                        "description": "Angle to rotate in degrees. POSITIVE = turn right, NEGATIVE = turn left. Example: 90 turns right, -90 turns left.",
                     }
                 },
                 "required": ["speed", "angle"]
@@ -93,7 +94,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="speak",
-            description="Make Buddy say something out loud. Perfect for monologues, greetings, or any speech!",
+            description="Make Buddy say something out loud. Use this for standalone speech. If you want Buddy to talk WHILE doing something else (moving, rotating), use multi_action instead. Perfect for greetings, announcements, or any verbal communication.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -114,7 +115,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="move_head",
-            description="Make Buddy nod (yes) or shake (no) his head.",
+            description="Make Buddy nod (yes) or shake (no) his head. Use 'yes' for agreement/approval or 'no' for disagreement/disapproval. Can be combined with other actions using multi_action (e.g., nod while saying 'Yes!')",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -143,7 +144,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="set_mood",
-            description="Change Buddy's facial expression/mood displayed on the screen.",
+            description="Change Buddy's facial expression/mood displayed on the screen. Use this to convey emotions visually. Can be combined with speech and gestures using multi_action for more expressive interactions (e.g., smile while saying 'Hello!')",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -158,11 +159,67 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="take_picture",
-            description="Capture and return the latest image from Buddy's camera. Returns the image with timestamp.",
+            description="Capture and return the latest image from Buddy's camera. Returns the image with timestamp. Use this to see what Buddy sees, analyze the environment, or track a person.",
             inputSchema={
                 "type": "object",
                 "properties": {},
                 "required": []
+            }
+        ),
+        Tool(
+            name="multi_action",
+            description="Execute multiple actions SIMULTANEOUSLY. This makes Buddy more fluid and natural by doing several things at once. Examples: move while talking, rotate while speaking, greet someone (talk + nod + smile). Use this instead of calling individual tools sequentially when you want Buddy to multitask.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "actions": {
+                        "type": "array",
+                        "description": "List of actions to execute simultaneously. Each action has a 'type' and its specific parameters.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "description": "Type of action: 'move' (move forward/backward), 'rotate' (turn left/right), 'talk' (speak), 'head' (nod/shake), 'mood' (facial expression)",
+                                    "enum": ["move", "rotate", "talk", "head", "mood"]
+                                },
+                                "speed": {
+                                    "type": "number",
+                                    "description": "Speed parameter (for move/rotate/head actions). Must be positive."
+                                },
+                                "distance": {
+                                    "type": "number",
+                                    "description": "Distance in meters (for move action). Positive = forward, negative = backward."
+                                },
+                                "angle": {
+                                    "type": "number",
+                                    "description": "Angle in degrees (for rotate/head actions). Positive = right/yes, negative = left/no."
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Text to speak (for talk action)"
+                                },
+                                "volume": {
+                                    "type": "integer",
+                                    "description": "Volume level 100-500 (for talk action, default: 300)"
+                                },
+                                "axis": {
+                                    "type": "string",
+                                    "description": "Head movement type (for head action): 'yes' = nod, 'no' = shake",
+                                    "enum": ["yes", "no"]
+                                },
+                                "mood": {
+                                    "type": "string",
+                                    "description": "Facial expression (for mood action)",
+                                    "enum": ["happy", "sad", "angry", "surprised", "neutral", "afraid", "disgusted", "contempt"]
+                                }
+                            },
+                            "required": ["type"]
+                        },
+                        "minItems": 1
+                    }
+                },
+                "required": ["actions"]
             }
         )
     ]

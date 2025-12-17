@@ -1,6 +1,311 @@
 # FlaskBuddy Todo List
 
-## Current Task: Fix Queue Sharing Between MCP Server and Flask API
+## Current Task: Add MultiOperation Support & Improve Command Descriptions
+**Status**: ✅ COMPLETED
+**Date**: 2025-12-16
+**Priority**: HIGH (New Feature + UX Improvement)
+
+### Objective:
+1. **Ajouter support MultiOperation** : Permettre à Buddy d'exécuter plusieurs actions simultanément (ex: bouger + parler)
+2. **Améliorer descriptions** : Clarifier les commandes pour que Claude comprenne mieux et puisse chaîner les actions
+
+### User Story:
+"Je veux que Buddy puisse parler pendant qu'il se déplace, ou faire plusieurs actions en même temps. Je veux aussi que Claude comprenne mieux les commandes disponibles."
+
+### Documentation API trouvée (Notion):
+```json
+{
+  "type": "MultiOperation",
+  "operations": [
+    {
+      "type": "MoveOperation",
+      "speed": 0.7,
+      "distance": 5.0
+    },
+    {
+      "type": "TalkOperation",
+      "message": "I am moving!"
+    }
+  ]
+}
+```
+
+### 3 Options Proposed:
+
+**Option 1: Ajout simple de MultiOperation** (⭐ Recommandée - KISS)
+- Créer nouveau tool `multi_action` dans MCP server
+- Permet de combiner plusieurs opérations (move + talk, rotate + talk, etc.)
+- Améliorer descriptions des tools existants avec exemples
+- Clarifier les capacités de chaque commande
+
+✅ **Avantages**: Simple, rapide, respecte KISS
+✅ **Effort**: Moyen (1 nouveau tool + amélioration descriptions)
+✅ **Flexibilité**: Claude choisit quand combiner ou non
+
+**Option 2: MultiOperation avancée avec validation**
+- Tout de l'Option 1 +
+- Validation des combinaisons possibles (interdire move + rotate simultané)
+- Ajouter presets (move_and_speak, rotate_and_speak)
+- Documentation détaillée des combinaisons recommandées
+
+✅ **Avantages**: Plus robuste, évite les erreurs
+⚠️ **Inconvénients**: Plus complexe, peut over-engineer
+
+**Option 3: Refonte complète avec système de contexte**
+- Tout de l'Option 1 +
+- Système de "contexte" pour mémoriser l'état de Buddy
+- MCP Resource avec guide d'utilisation avancé
+- Macros pré-définies (greet_person, explore_room)
+
+✅ **Avantages**: Très puissant, très flexible
+⚠️ **Inconvénients**: Beaucoup de travail, complexité élevée
+
+### User Choice: ✅ Option 1 (KISS) - SELECTED & IMPLEMENTED
+
+### Plan (Option 1 - Recommandée):
+1. ✅ Mettre à jour Todo.md avec le plan
+2. ✅ Créer fonction `multi_action()` dans `buddy_functions.py`
+   - Accepte une liste d'opérations
+   - Crée un `MultiOperation` avec toutes les opérations
+   - Valide que les opérations sont compatibles
+3. ✅ Ajouter tool `multi_action` dans `mcp_server.py`
+   - Description claire avec exemples concrets
+   - Schema JSON acceptant une liste d'actions
+   - Exemples: "bouger + parler", "tourner + parler"
+4. ✅ Améliorer descriptions des tools existants
+   - Ajouter exemples d'usage typiques
+   - Clarifier quand utiliser chaque commande vs multi_action
+   - Ajouter des "tips" pour Claude
+5. ⏳ Prêt pour test avec Claude Desktop
+
+### Code Changes Required:
+
+**File 1: `buddy_functions.py`**
+- Ajouter fonction `multi_action(actions: list)` :
+  ```python
+  def multi_action(actions: list):
+      """Execute multiple operations simultaneously.
+      
+      Allows Buddy to do multiple things at once (e.g., move + talk).
+      
+      Parameters:
+      - actions: List of action dictionaries, each with 'type' and parameters
+      
+      Examples:
+      - Move and talk: [{"type": "move", "speed": 100, "distance": 1.0}, 
+                        {"type": "talk", "message": "I'm moving!"}]
+      - Rotate and talk: [{"type": "rotate", "speed": 50, "angle": 90}, 
+                          {"type": "talk", "message": "Turning right"}]
+      """
+      # Build list of operations
+      operations = []
+      for action in actions:
+          action_type = action.get("type")
+          if action_type == "move":
+              operations.append({
+                  "type": "MoveOperation",
+                  "speed": abs(action.get("speed", 100)),
+                  "distance": action.get("distance", 0)
+              })
+          elif action_type == "rotate":
+              operations.append({
+                  "type": "RotateOperation",
+                  "speed": abs(action.get("speed", 50)),
+                  "angle": action.get("angle", 0)
+              })
+          elif action_type == "talk":
+              operations.append({
+                  "type": "TalkOperation",
+                  "message": action.get("message", ""),
+                  "volume": action.get("volume", 300)
+              })
+          elif action_type == "head":
+              axis_value = "Yes" if action.get("axis", "yes").lower() == "yes" else "No"
+              operations.append({
+                  "type": "HeadOperation",
+                  "speed": action.get("speed", 40.0),
+                  "angle": action.get("angle", 20.0),
+                  "axis": axis_value
+              })
+          elif action_type == "mood":
+              operations.append({
+                  "type": "MoodOperation",
+                  "mood": action.get("mood", "NEUTRAL").upper()
+              })
+      
+      multi_operation = {
+          "type": "MultiOperation",
+          "operations": operations
+      }
+      
+      return queue_operation(multi_operation, f"Queued multi-action with {len(operations)} operations")
+  ```
+
+**File 2: `mcp_server.py`**
+- Ajouter tool `multi_action` dans la liste des tools :
+  ```python
+  Tool(
+      name="multi_action",
+      description="Execute multiple actions simultaneously. Perfect for doing several things at once like moving while talking, rotating while speaking, etc. This makes Buddy more fluid and natural.",
+      inputSchema={
+          "type": "object",
+          "properties": {
+              "actions": {
+                  "type": "array",
+                  "description": "List of actions to execute simultaneously",
+                  "items": {
+                      "type": "object",
+                      "properties": {
+                          "type": {
+                              "type": "string",
+                              "description": "Action type",
+                              "enum": ["move", "rotate", "talk", "head", "mood"]
+                          }
+                      },
+                      "required": ["type"]
+                  }
+              }
+          },
+          "required": ["actions"]
+      }
+  )
+  ```
+
+- Améliorer descriptions des tools existants avec des exemples concrets
+
+### Expected Behavior After Implementation:
+- ✅ Claude peut appeler `multi_action([{"type": "move", "speed": 100, "distance": 1}, {"type": "talk", "message": "Je bouge!"}])`
+- ✅ Buddy se déplace ET parle en même temps
+- ✅ Claude comprend mieux quand utiliser chaque commande
+- ✅ Interactions plus fluides et naturelles
+
+---
+
+## Previous Task: Fix Speed/Distance Parameter Validation
+**Status**: ✅ COMPLETED
+**Date**: 2025-12-16
+**Priority**: HIGH (Bug Fix + Documentation)
+
+### Objective:
+Corriger et documenter les règles importantes pour les paramètres de mouvement et rotation :
+- **move_buddy** : `distance` peut être ± (+ avance, - recule), mais `speed` doit être OBLIGATOIREMENT positive
+- **rotate_buddy** : `angle` peut être ± (+ droite, - gauche), mais `speed` doit être OBLIGATOIREMENT positive
+
+### Problem Identified:
+**Ligne 55 de `buddy_functions.py`** :
+```python
+direction = "forward" if speed > 0 else "backward"  # ❌ FAUX !
+```
+- ❌ La direction est basée sur `speed` au lieu de `distance`
+- ❌ Aucune validation que `speed` est positive
+- ❌ Documentation peu claire dans `mcp_server.py`
+
+### Root Cause:
+- Le code utilise `speed` pour déterminer la direction (ligne 55)
+- MAIS selon la documentation, c'est `distance` qui détermine la direction
+- Résultat : comportement imprévisible et bugs
+
+### 3 Options Proposed:
+
+**Option 1: Fix Simple + Documentation** (⭐ Recommandée - KISS)
+- Corriger ligne 55 : `direction = "forward" if distance > 0 else "backward"`
+- Ajouter validation : `speed = abs(speed)` pour garantir positivité
+- Améliorer commentaires dans le code
+- Clarifier descriptions dans `mcp_server.py`
+
+✅ **Avantages**: Simple, rapide, clair, KISS
+✅ **Changes**: 2 fichiers seulement
+
+**Option 2: Fix + Validation stricte**
+- Tout de l'Option 1 +
+- Lever une `ValueError` si `speed < 0` (au lieu de abs())
+- Force l'utilisateur à bien utiliser l'API
+
+✅ **Avantages**: Plus strict, détecte les erreurs
+⚠️ **Inconvénients**: Moins tolérant, peut casser le code existant
+
+**Option 3: Fix + Documentation externe**
+- Tout de l'Option 1 +
+- Créer fichier `BUDDY_API_RULES.md` avec toutes les règles
+- Ajouter exemples d'utilisation concrets
+
+✅ **Avantages**: Documentation centralisée
+⚠️ **Inconvénients**: Plus de maintenance, fichier supplémentaire
+
+### User Choice: ✅ Option 1 (KISS) - SELECTED & IMPLEMENTED
+
+### Plan (Option 1 - Recommandée):
+1. ✅ Mettre à jour Todo.md avec le plan (cette section)
+2. ✅ Corriger `buddy_functions.py` :
+   - Ligne 55 : Changer `speed > 0` en `distance > 0`
+   - Ajouter `speed = abs(speed)` pour garantir positivité
+   - Ajouter commentaire expliquant les règles
+3. ✅ Corriger `buddy_functions.py` fonction `rotate_buddy` :
+   - Ajouter `speed = abs(speed)` pour garantir positivité
+   - Améliorer commentaires
+4. ✅ Clarifier descriptions dans `mcp_server.py` :
+   - Tool `move_buddy` : Préciser que speed doit être positive
+   - Tool `rotate_buddy` : Préciser que speed doit être positive
+   - Ajouter exemples dans les descriptions
+5. ⏳ Prêt pour test avec Claude Desktop
+
+### Code Changes Required:
+
+**File 1: `buddy_functions.py`**
+- Ligne 48-56 (fonction `move_buddy`) :
+  ```python
+  def move_buddy(speed: float, distance: float):
+      """Move Buddy forward or backward.
+      
+      Rules:
+      - speed: MUST be positive (will be forced to abs() if negative)
+      - distance: Positive = forward, Negative = backward
+      """
+      speed = abs(speed)  # Ensure speed is always positive
+      operation = {
+          "type": "MoveOperation",
+          "speed": speed,
+          "distance": distance
+      }
+      direction = "forward" if distance > 0 else "backward"  # Fixed: use distance, not speed
+      return queue_operation(operation, f"Queued move {direction} at speed {speed} for {abs(distance)}m")
+  ```
+
+- Ligne 59-66 (fonction `rotate_buddy`) :
+  ```python
+  def rotate_buddy(speed: float, angle: float):
+      """Rotate Buddy left or right by the specified angle.
+      
+      Rules:
+      - speed: MUST be positive (will be forced to abs() if negative)
+      - angle: Positive = right, Negative = left
+      """
+      speed = abs(speed)  # Ensure speed is always positive
+      operation = {
+          "type": "RotateOperation",
+          "speed": speed,
+          "angle": angle
+      }
+      direction = "right" if angle > 0 else "left"
+      return queue_operation(operation, f"Queued rotation {direction} at speed {speed} for {abs(angle)} degrees")
+  ```
+
+**File 2: `mcp_server.py`**
+- Lignes 54-73 : Clarifier descriptions des tools
+  - Préciser que `speed` doit être positive
+  - Ajouter exemples concrets
+
+### Expected Behavior After Fix:
+- ✅ `move_buddy(speed=100, distance=0.5)` → Avance de 0.5m à vitesse 100
+- ✅ `move_buddy(speed=100, distance=-0.5)` → **Recule** de 0.5m à vitesse 100
+- ✅ `move_buddy(speed=-100, distance=0.5)` → Avance de 0.5m à vitesse 100 (speed devient abs())
+- ✅ `rotate_buddy(speed=50, angle=90)` → Tourne à droite de 90° à vitesse 50
+- ✅ `rotate_buddy(speed=50, angle=-90)` → Tourne à gauche de 90° à vitesse 50
+- ✅ `rotate_buddy(speed=-50, angle=90)` → Tourne à droite de 90° à vitesse 50 (speed devient abs())
+
+---
+
+## Previous Task: Fix Queue Sharing Between MCP Server and Flask API
 **Status**: ✅ COMPLETED
 **Date**: 2025-12-16
 **Priority**: CRITICAL (Operations not being received) - RESOLVED
