@@ -1227,10 +1227,6 @@ def build_operation(name: str, **kwargs) -\> dict:
 
 ### Étape 5 : Serveur MCP (mcp_server.py)
 
-Créer `mcp_server.py` **complet** :
-
-### Étape 5 : Serveur MCP (mcp_server.py)
-
 Créer le fichier `mcp_server.py` avec le code **complet** suivant :
 
 ```python
@@ -1820,7 +1816,7 @@ notepad "$env:APPDATA\Claude\claude_desktop_config.json"
     "buddy": {
       "command": "python",
       "args": [
-        "C:\\Users\\Teddy CHOUVET\\Downloads\\flaskBuddy-main\\flaskBuddy-main\\api.py"
+        "C:\\Users\\Elissanna Barcet\\Downloads\\flaskBuddy-main\\flaskBuddy-main\\api.py"
       ],
       "env": {}
     }
