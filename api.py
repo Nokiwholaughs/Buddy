@@ -14,6 +14,9 @@ import json as json_module
 
 app = Flask(__name__)
 
+# Global MCP server instance (will be initialized in HTTP mode)
+mcp_sse_handler = None
+
 # Path to save the latest image
 LATEST_IMAGE_PATH = os.path.join(os.path.dirname(__file__), "latest_image.png")
 
@@ -84,132 +87,51 @@ def operation():
     log(f"[/operation] No operations in queue")
     return jsonify({"status": "success", "operation": None}), 200
 
-@app.route("/mcp", methods=['GET', 'POST'])
+@app.route("/mcp")
 def mcp_endpoint():
     """
-    MCP endpoint for ChatGPT connector integration via SSE.
-    This endpoint handles the Model Context Protocol over HTTP/SSE transport.
+    MCP endpoint for ChatGPT connector integration.
+    Returns basic information about the MCP server.
+    For now, this is a placeholder - full SSE implementation requires ASGI.
     """
-    log(f"[/mcp] MCP endpoint accessed - Method: {request.method}")
-    
-    # Import MCP components
-    try:
-        from mcp.server.sse import SseServerTransport
-        from mcp_server import app as mcp_app
-    except ImportError as e:
-        log(f"[/mcp] Error importing MCP SSE: {e}")
-        return jsonify({"error": "MCP SSE transport not available", "details": str(e)}), 500
-    
-    try:
-        # Create SSE transport with message endpoint
-        sse_transport = SseServerTransport("/mcp/messages")
-        
-        # Handle SSE requests
-        async def handle_sse():
-            async with sse_transport.connect_sse(
-                request.environ,
-                lambda: Response(status=200)
-            ) as streams:
-                await mcp_app.run(
-                    streams[0],
-                    streams[1],
-                    mcp_app.create_initialization_options()
-                )
-        
-        # Run async handler in sync context
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(handle_sse())
-        finally:
-            loop.close()
-        
-        return Response(status=200)
-        
-    except Exception as e:
-        log(f"[/mcp] Error handling MCP request: {e}")
-        import traceback
-        log(f"[/mcp] Traceback: {traceback.format_exc()}")
-        return jsonify({"error": "MCP request failed", "details": str(e)}), 500
+    log(f"[/mcp] MCP endpoint accessed")
+    return jsonify({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+            "protocolVersion": "2024-11-05",
+            "serverInfo": {
+                "name": "buddy-mcp-server",
+                "version": "1.0.0"
+            },
+            "capabilities": {
+                "tools": {}
+            }
+        }
+    })
 
-@app.route("/mcp/messages", methods=['POST'])
-def mcp_messages():
-    """
-    Message endpoint for MCP SSE transport.
-    Receives messages from the client (ChatGPT).
-    """
-    log(f"[/mcp/messages] POST received")
-    try:
-        data = request.get_json()
-        log(f"[/mcp/messages] Data: {data}")
-        return jsonify({"status": "received"}), 200
-    except Exception as e:
-        log(f"[/mcp/messages] Error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/sse", methods=['GET', 'POST'])
+@app.route("/sse")
 def sse_endpoint():
     """
     SSE endpoint for Claude API MCP connector integration.
-    This is the endpoint used by Claude's Messages API with MCP connector.
-    See: https://platform.claude.com/docs/en/agents-and-tools/mcp-connector
+    Returns basic information about the MCP server.
+    For now, this is a placeholder - full SSE implementation requires ASGI.
     """
-    log(f"[/sse] SSE endpoint accessed - Method: {request.method}")
-    
-    # Import MCP components
-    try:
-        from mcp.server.sse import SseServerTransport
-        from mcp_server import app as mcp_app
-    except ImportError as e:
-        log(f"[/sse] Error importing MCP SSE: {e}")
-        return jsonify({"error": "MCP SSE transport not available", "details": str(e)}), 500
-    
-    try:
-        # Create SSE transport with message endpoint
-        sse_transport = SseServerTransport("/sse/messages")
-        
-        # Handle SSE requests
-        async def handle_sse():
-            async with sse_transport.connect_sse(
-                request.environ,
-                lambda: Response(status=200)
-            ) as streams:
-                await mcp_app.run(
-                    streams[0],
-                    streams[1],
-                    mcp_app.create_initialization_options()
-                )
-        
-        # Run async handler in sync context
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(handle_sse())
-        finally:
-            loop.close()
-        
-        return Response(status=200)
-        
-    except Exception as e:
-        log(f"[/sse] Error handling SSE request: {e}")
-        import traceback
-        log(f"[/sse] Traceback: {traceback.format_exc()}")
-        return jsonify({"error": "SSE request failed", "details": str(e)}), 500
-
-@app.route("/sse/messages", methods=['POST'])
-def sse_messages():
-    """
-    Message endpoint for Claude API SSE transport.
-    Receives messages from Claude's MCP connector.
-    """
-    log(f"[/sse/messages] POST received")
-    try:
-        data = request.get_json()
-        log(f"[/sse/messages] Data: {data}")
-        return jsonify({"status": "received"}), 200
-    except Exception as e:
-        log(f"[/sse/messages] Error: {e}")
-        return jsonify({"error": str(e)}), 500
+    log(f"[/sse] SSE endpoint accessed")
+    return jsonify({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+            "protocolVersion": "2024-11-05",
+            "serverInfo": {
+                "name": "buddy-mcp-server",
+                "version": "1.0.0"
+            },
+            "capabilities": {
+                "tools": {}
+            }
+        }
+    })
 
 def run_cli():
     """Run interactive CLI for controlling Buddy."""

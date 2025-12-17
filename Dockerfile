@@ -20,16 +20,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY api.py .
 COPY mcp_server.py .
 COPY buddy_functions.py .
+COPY mcp_http_server.py .
+COPY start_servers.py .
 
 # Create directory for image storage
 RUN mkdir -p /app/data
 
-# Expose Flask port
-EXPOSE 5000
+# Expose ports
+# 5000 - Flask API (robot control endpoints)
+# 5001 - MCP/SSE endpoints
+EXPOSE 5000 5001
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-# Run in HTTP/SSE mode for ChatGPT connector integration
-CMD ["python", "api.py", "--http"]
+# Run both servers
+CMD ["python", "start_servers.py"]
 

@@ -89,13 +89,17 @@ docker rm buddy-server
 
 ### 3. Expose with ngrok
 
+For MCP endpoints (ChatGPT/Claude API), expose port 5001:
+
 ```bash
 # Install ngrok: https://ngrok.com/download
-# Then expose your local port 5000
-ngrok http 5000
+# Then expose the MCP server port
+ngrok http 5001
 ```
 
 This will provide a public HTTPS URL like `https://abc123.ngrok-free.app`
+
+**Note**: Port 5000 (Flask API) is for the Buddy robot to poll operations. Port 5001 (MCP/SSE) is for AI platform integrations.
 
 ### 4. Create ChatGPT Connector
 
@@ -373,7 +377,8 @@ volumes:
 
 ### Ports
 
-- **5000**: Flask server (HTTP API + MCP endpoint)
+- **5000**: Flask server (HTTP API for robot control)
+- **5001**: MCP/SSE server (MCP protocol endpoints)
 
 ## Troubleshooting
 

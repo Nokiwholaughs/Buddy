@@ -13,10 +13,13 @@ That's it! The server is now running on port 5000.
 ### Step 2: Expose with ngrok
 
 ```bash
-ngrok http 5000
+# Expose the MCP server port (5001)
+ngrok http 5001
 ```
 
 Copy the HTTPS URL (e.g., `https://abc123.ngrok-free.app`)
+
+**Note**: We use port 5001 for MCP/AI integrations. Port 5000 is for the Buddy robot's API.
 
 ### Step 3: Choose Your AI Platform
 

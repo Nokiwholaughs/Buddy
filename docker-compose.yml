@@ -5,7 +5,8 @@ services:
     build: .
     container_name: buddy-mcp-server
     ports:
-      - "5000:5000"
+      - "5000:5000"  # Flask API (robot control)
+      - "5001:5001"  # MCP/SSE endpoints
     volumes:
       # Mount a volume for persistent image storage
       - ./data:/app/data
