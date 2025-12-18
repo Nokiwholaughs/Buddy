@@ -1,6 +1,67 @@
 # FlaskBuddy Todo List
 
-## Current Task: Create Person Tracking Feature
+## Current Task: Remove track_person Feature
+**Status**: ✅ COMPLETED
+**Date**: 2025-12-18
+**Priority**: MEDIUM (Code cleanup & Documentation)
+
+### Objective:
+Supprimer complètement la fonctionnalité `track_person` du code et de la documentation pour simplifier le projet.
+
+### User Request:
+"J'aurais besoin que tu supprime tout ce qui est lié a track person que ce soit dans le code et dans la doc"
+
+### 3 Options Proposed:
+
+**Option 1: Suppression complète et nettoyage** (⭐ RECOMMANDÉE - KISS)
+- ✅ Simplicité : Supprime tout le code et la documentation
+- Supprime la fonction `track_person()` dans `buddy_functions.py`
+- Retire l'import et le tool dans `mcp_server.py`
+- Nettoie toutes les références dans `documentation_pres.md`
+- Nettoie les tâches dans `Todo.md`
+- **Avantage** : Code propre, plus de confusion possible
+- **Inconvénient** : Perte définitive de la fonctionnalité (récupérable via Git)
+
+**Option 2: Désactivation temporaire (commentaires)**
+- Conserve le code en commentaires pour référence future
+- Désactive le tool dans `mcp_server.py`
+- **Avantage** : Possibilité de réactiver plus tard
+- **Inconvénient** : Code mort qui encombre le projet
+
+**Option 3: Archivage dans un fichier séparé**
+- Déplace le code vers un fichier `archived_features.py`
+- **Avantage** : Traçabilité historique
+- **Inconvénient** : Plus complexe, pas nécessaire
+
+### User Choice: ✅ Option 1 (Suppression complète) - SELECTED
+
+### Plan (Option 1):
+1. ✅ Mettre à jour `Todo.md` avec le plan de suppression
+2. ✅ Modifier `buddy_functions.py`:
+   - ✅ Supprimer la fonction `track_person()` (lignes 252-366)
+   - ✅ Retirer l'entrée du dictionnaire `TOOL_HANDLERS` (ligne 378)
+3. ✅ Modifier `mcp_server.py`:
+   - ✅ Retirer l'import `track_person` (ligne 30)
+   - ✅ Supprimer le Tool definition (lignes 226-249)
+4. ✅ Nettoyer `documentation_pres.md`:
+   - ✅ Supprimer toutes les sections concernant track_person
+   - ✅ Mettre à jour la liste des fonctionnalités (ligne 68, 90)
+   - ✅ Retirer le code et exemples (lignes 1054+, 1160, 1260, 1560+, 2092+)
+5. ✅ Nettoyer `Todo.md`:
+   - ✅ Marquer cette tâche comme terminée
+
+### Files Modified:
+- ✅ `buddy_functions.py` - Fonction supprimée et handler retiré
+- ✅ `mcp_server.py` - Import et tool supprimés
+- ✅ `documentation_pres.md` - Toutes les références nettoyées
+- ✅ `Todo.md` - Tâche marquée comme terminée
+
+### Summary:
+Toutes les références à `track_person` ont été supprimées avec succès du projet. Le système conserve maintenant 7 outils principaux au lieu de 9 (avant 8). Le code est plus propre et plus facile à maintenir.
+
+---
+
+## Previous Task: Create Person Tracking Feature
 **Status**: ✅ COMPLETED
 **Date**: 2025-12-17
 **Priority**: HIGH (New Autonomous Feature)

@@ -27,9 +27,9 @@ from buddy_functions import (
     set_mood,
     take_picture,
     multi_action,
-    track_person,
     TOOL_HANDLERS
 )
+
 
 # Shared state - These will be initialized by api.py via init_shared_state()
 # DO NOT create them here - that would create a separate queue!
@@ -222,32 +222,9 @@ async def list_tools() -> list[Tool]:
                 },
                 "required": ["actions"]
             }
-        ),
-        Tool(
-            name="track_person",
-            description="Track a person autonomously by taking photos and executing smart tracking actions. This is THE tool for person following! Process: 1) Takes photo automatically, 2) Returns image for your analysis, 3) You decide action based on person position, 4) Executes action safely (rotate OR move, NEVER both). Call repeatedly to track someone. Perfect for autonomous following, person interaction, or surveillance tasks.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "action": {
-                        "type": "string",
-                        "description": "Tracking action to execute based on person position in image. Choose: 'rotate_left' if person on left, 'rotate_right' if on right, 'move_forward' if centered and far, 'backup' if too close, 'search' if not visible, 'stop' if perfectly positioned. If omitted, only takes photo for analysis.",
-                        "enum": ["rotate_left", "rotate_right", "move_forward", "backup", "search", "stop"]
-                    },
-                    "talk_message": {
-                        "type": "string",
-                        "description": "Optional message to say WHILE executing action. Makes tracking interactive and friendly. Examples: 'Je te vois!', 'J'arrive!', 'Où es-tu?'"
-                    },
-                    "mood": {
-                        "type": "string",
-                        "description": "Optional mood/facial expression during action. Adds personality to tracking. Examples: 'happy' when approaching, 'surprised' when searching, 'neutral' for normal tracking.",
-                        "enum": ["happy", "sad", "angry", "surprised", "neutral", "afraid", "disgusted", "contempt"]
-                    }
-                },
-                "required": []
-            }
         )
     ]
+
 
 
 @app.call_tool()

@@ -65,8 +65,7 @@ FlaskBuddy est un système complet permettant de contrôler le robot Buddy via *
 │    5. set_mood        - Expression faciale                     │
 │    6. take_picture    - Capture photo                          │
 │    7. multi_action    - Actions multiples simultanées          │
-│    8. track_person    - Suivi autonome de personne             │
-└───────────────────────┬────────────────────────────────────────┘
+└────────────────────────┬───────────────────────────────────────┘
                         │
                         │ Shared Memory (Python)
                         │ operation_queue (deque)
@@ -77,7 +76,7 @@ FlaskBuddy est un système complet permettant de contrôler le robot Buddy via *
 │           Buddy Functions (buddy_functions.py)                 │
 │  Rôle: Implémentation de la logique métier                    │
 │  ────────────────────────────────────────────────────────      │
-│  - Implémente les 9 fonctions outils                           │
+│  - Implémente les 7 fonctions outils                           │
 │  - Crée les opérations au format API REST                      │
 │  - Gère la queue partagée avec Flask                           │
 │  - Logs détaillés pour debugging                               │
@@ -87,7 +86,6 @@ FlaskBuddy est un système complet permettant de contrôler le robot Buddy via *
 │    - rotate_buddy()   -> RotateOperation                       │
 │    - speak()          -> TalkOperation                         │
 │    - multi_action()   -> MultiOperation                        │
-│    - track_person()   -> Photo + Décision + Action             │
 └───────────────────────┬────────────────────────────────────────┘
                         │
                         │ Append operations to queue
@@ -1051,103 +1049,10 @@ def multi_action(actions: list):
     return queue_operation(multi_operation, message)
 
 
-def track_person(action: str = None, talk_message: str = None, mood: str = None):
-    """
-    Suit une personne de manière autonome.
-    
-    Process:
-    1. Prend photo automatiquement
-    2. Retourne image pour analyse par Claude
-    3. Claude décide l'action selon position personne
-    4. Exécute action (rotate OU move, JAMAIS les 2)
-    
-    RÈGLE: Garantit NO conflit rotate+move (actions séparées)
-    
-    Args:
-        action: Action à exécuter (None = photo seulement)
-                Options: rotate_left, rotate_right, move_forward,
-                         backup, search, stop
-        talk_message: Message optionnel pendant action
-        mood: Humeur optionnelle pendant action
-    
-    Returns:
-        MCP response avec photo + résultat action
-    """
-    # TOUJOURS prendre photo d'abord
-    log("track_person: Taking photo...")
-    photo_result = take_picture()
-    
-    # Si pas d'action, retourner juste la photo
-    if action is None:
-        log("track_person: No action - returning photo")
-        return photo_result
-    
-    # Construire liste d'actions
-    actions = []
-    
-    # Ajouter mouvement/rotation (JAMAIS les 2 ensemble)
-    if action == "rotate_left":
-        actions.append({"type": "rotate", "speed": 50, "angle": -30})
-        log("track_person: Action = rotate_left (-30°)")
-    
-    elif action == "rotate_right":
-        actions.append({"type": "rotate", "speed": 50, "angle": 30})
-        log("track_person: Action = rotate_right (+30°)")
-    
-    elif action == "move_forward":
-        actions.append({"type": "move", "speed": 100, "distance": 0.3})
-        log("track_person: Action = move_forward (0.3m)")
-    
-    elif action == "backup":
-        actions.append({"type": "move", "speed": 100, "distance": -0.2})
-        log("track_person: Action = backup (-0.2m)")
-    
-    elif action == "search":
-        # Rotation lente pour chercher
-        actions.append({"type": "rotate", "speed": 30, "angle": -45})
-        log("track_person: Action = search (slow rotate)")
-    
-    elif action == "stop":
-        # Pas de mouvement, juste talk/mood si spécifié
-        log("track_person: Action = stop")
-        pass
-    
-    else:
-        log(f"track_person: Unknown action '{action}'")
-        return photo_result + [TextContent(
-            type="text",
-            text=f"Error: Unknown action '{action}'"
-        )]
-    
-    # Ajouter talk optionnel
-    if talk_message:
-        actions.append({"type": "talk", "message": talk_message})
-        log(f"track_person: Adding talk = '{talk_message}'")
-    
-    # Ajouter mood optionnel
-    if mood:
-        actions.append({"type": "mood", "mood": mood})
-        log(f"track_person: Adding mood = {mood}")
-    
-    # Exécuter actions si présentes
-    if actions:
-        multi_result = multi_action(actions)
-        separator = [TextContent(
-            type="text",
-            text="\n--- Tracking Action Executed ---"
-        )]
-        return photo_result + separator + multi_result
-    else:
-        # Juste stop sans talk/mood
-        return photo_result + [TextContent(
-            type="text",
-            text="Tracking: Stopped (no movement)"
-        )]
-
-
 # ═══════════════════════════════════════════════════════════════
 # TOOL HANDLERS - Dispatch dictionary
 # ═══════════════════════════════════════════════════════════════
+
 
 TOOL_HANDLERS = {
     "move_buddy": move_buddy,
@@ -1157,7 +1062,6 @@ TOOL_HANDLERS = {
     "set_mood": set_mood,
     "take_picture": take_picture,
     "multi_action": multi_action,
-    "track_person": track_person,
 }
 
 
@@ -1257,7 +1161,6 @@ from buddy_functions import (
     set_mood,
     take_picture,
     multi_action,
-    track_person,
     TOOL_HANDLERS
 )
 
@@ -1554,76 +1457,14 @@ async def list_tools() -> list[Tool]:
                 },
                 "required": ["actions"]
             }
-        ),
-        
-        # ═══════════════════════════════════════════════════════
-        # TOOL 8: track_person (AUTONOMOUS FEATURE)
-        # ═══════════════════════════════════════════════════════
-        Tool(
-            name="track_person",
-            description=(
-                "Track a person autonomously by taking photos and executing "
-                "smart tracking actions. This is THE tool for person following! "
-                "Process: "
-                "1) Takes photo automatically, "
-                "2) Returns image for your analysis, "
-                "3) You decide action based on person position, "
-                "4) Executes action safely (rotate OR move, NEVER both). "
-                "Call repeatedly to track someone. "
-                "Perfect for autonomous following, person interaction, or surveillance tasks."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "action": {
-                        "type": "string",
-                        "description": (
-                            "Tracking action to execute based on person position in image. "
-                            "Choose: "
-                            "'rotate_left' if person on left, "
-                            "'rotate_right' if on right, "
-                            "'move_forward' if centered and far, "
-                            "'backup' if too close, "
-                            "'search' if not visible, "
-                            "'stop' if perfectly positioned. "
-                            "If omitted, only takes photo for analysis."
-                        ),
-                        "enum": [
-                            "rotate_left", "rotate_right", "move_forward",
-                            "backup", "search", "stop"
-                        ]
-                    },
-                    "talk_message": {
-                        "type": "string",
-                        "description": (
-                            "Optional message to say WHILE executing action. "
-                            "Makes tracking interactive and friendly. "
-                            "Examples: 'Je te vois!', 'J'arrive!', 'Où es-tu?'"
-                        )
-                    },
-                    "mood": {
-                        "type": "string",
-                        "description": (
-                            "Optional mood/facial expression during action. "
-                            "Adds personality to tracking. "
-                            "Examples: 'happy' when approaching, 'surprised' when searching, "
-                            "'neutral' for normal tracking."
-                        ),
-                        "enum": [
-                            "happy", "sad", "angry", "surprised",
-                            "neutral", "afraid", "disgusted", "contempt"
-                        ]
-                    }
-                },
-                "required": []
-            }
-        ),
+        )
     ]
 
 
 # ═══════════════════════════════════════════════════════════════
 # CALL TOOL - Exécution des tools
 # ═══════════════════════════════════════════════════════════════
+
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
@@ -2077,40 +1918,7 @@ Claude devrait voir l'image de test.
 
 ## 💡 Utilisation avancée
 
-### Exemple 1 : Suivi de personne autonome
-
-**Scénario complet** dans Claude :
-
-```
-"Buddy, suis la personne devant toi de manière autonome"
-```
-
-**Claude va exécuter** :
-
-```
-Étape 1:
-track_person()
-→ Photo prise
-→ Analyse: "Je vois une personne sur la gauche"
-
-Étape 2:
-track_person("rotate_left", "Je te vois sur ma gauche!")
-→ Tourner + parler
-
-Étape 3:
-track_person()
-→ Nouvelle photo
-→ Analyse: "Personne centrée mais loin"
-
-Étape 4:
-track_person("move_forward", "J'arrive vers toi!", "happy")
-→ Avancer + parler + sourire
-
-Étape 5-N:
-Répéter jusqu'à ce que la personne soit bien positionnée
-```
-
-### Exemple 2 : Séquence d'actions complexe
+### Exemple 1 : Séquence d'actions complexe
 
 ```
 "Buddy, fais une démonstration de tes capacités"
@@ -2135,7 +1943,8 @@ Claude peut enchaîner :
 6. speak("Voilà ce que je vois!")
 ```
 
-### Exemple 3 : Mode gardien
+### Exemple 2 : Mode gardien
+
 
 ```
 "Buddy, surveille la pièce et alerte-moi si tu vois quelqu'un"
