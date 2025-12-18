@@ -1943,29 +1943,6 @@ Claude peut enchaîner :
 6. speak("Voilà ce que je vois!")
 ```
 
-### Exemple 2 : Mode gardien
-
-
-```
-"Buddy, surveille la pièce et alerte-moi si tu vois quelqu'un"
-```
-
-Claude peut implémenter :
-```python
-while True:
-    photo = track_person()
-    if person_detected(photo):
-        multi_action([
-            {type: "talk", message: "Alerte! Quelqu'un est détecté!"},
-            {type: "mood", mood: "surprised"}
-        ])
-        track_person("move_forward", "Approche pour identifier")
-        break
-    else:
-        track_person("search", "Je surveille...")
-        wait(5 seconds)
-```
-
 ---
 
 ## 🔧 Troubleshooting détaillé
@@ -2113,9 +2090,8 @@ move_buddy(...)
 rotate_buddy(...)
 ```
 
-Ou utiliser `track_person()` qui garantit la sécurité.
-
 ---
+
 
 ## 🛠️ Développement & Contribution
 
