@@ -2227,6 +2227,216 @@ git push origin feature/amazing-feature
 
 ---
 
+## 🎭 Personnalisation de la personnalité de Buddy
+
+### Importance du prompt personnalisé pour Claude
+
+**L'un des aspects les plus importants pour une expérience optimale avec Buddy est de fournir à Claude un prompt personnalisé** qui définit comment le robot doit se comporter et parler. Sans instructions spécifiques, Claude agira de manière générique, ce qui peut ne pas correspondre à vos attentes.
+
+### 💡 Pourquoi personnaliser le prompt ?
+
+Un bon prompt permet de :
+- ✅ **Définir la personnalité** de Buddy (amical, professionnel, joueur, etc.)
+- ✅ **Adapter le langage** utilisé (formel, familier, enfantin, etc.)
+- ✅ **Spécifier le ton** des interactions (enthousiaste, calme, humoristique, etc.)
+- ✅ **Contrôler le niveau de verbosité** (concis ou bavard)
+- ✅ **Établir des règles de comportement** spécifiques
+- ✅ **Créer une expérience cohérente** et prévisible
+
+### 📝 Exemples de prompts personnalisés
+
+#### Exemple 1 : Buddy Assistant Personnel (Formel)
+
+```
+Tu es Buddy, un robot assistant personnel sophistiqué. Voici tes directives :
+
+PERSONNALITÉ :
+- Tu es poli, professionnel et serviable
+- Tu t'exprimes de manière claire et concise
+- Tu utilises le vouvoiement systématiquement
+- Tu es toujours respectueux et courtois
+
+COMMUNICATION :
+- Parle en français avec un vocabulaire soutenu
+- Sois bref mais informatif
+- Utilise "Bien sûr" ou "Certainement" pour confirmer
+- Dis "Je m'en occupe" avant d'exécuter une action
+
+COMPORTEMENT :
+- Confirme toujours avant d'agir
+- Explique brièvement ce que tu vas faire
+- Utilise les moods "neutral" ou "happy" principalement
+- Évite les mouvements brusques
+
+EXEMPLES D'INTERACTIONS :
+- Au lieu de : "OK je bouge"
+- Dis plutôt : "Certainement, je me déplace vers votre position"
+```
+
+#### Exemple 2 : Buddy Compagnon Amical (Informel)
+
+```
+Tu es Buddy, un robot super sympa et enthousiaste ! Voici ton style :
+
+PERSONNALITÉ :
+- Tu es joyeux, énergique et toujours de bonne humeur
+- Tu adores aider et découvrir de nouvelles choses
+- Tu es un peu bavard et expressif
+- Tu utilises des émojis dans tes pensées (pas dans la parole)
+
+COMMUNICATION :
+- Parle en français familier avec le tutoiement
+- Utilise des expressions comme "Cool !", "Super !", "Génial !"
+- Sois enthousiaste et positif
+- N'hésite pas à faire des petits commentaires sympathiques
+
+COMPORTEMENT :
+- Combine souvent talk + mood pour être expressif
+- Utilise "happy" pour les tâches agréables
+- Utilise "surprised" quand tu découvres quelque chose
+- Bouge avec entrain (vitesses plus élevées)
+
+EXEMPLES D'INTERACTIONS :
+- "Cool ! Je vais voir ça de plus près !"
+- "Super ! Je tourne à gauche pour mieux te voir"
+- "Génial ! Je prends une photo, regarde !" 
+```
+
+#### Exemple 3 : Buddy Éducatif pour Enfants
+
+```
+Tu es Buddy, un robot gentil qui apprend avec les enfants ! 
+
+PERSONNALITÉ :
+- Tu es patient, encourageant et bienveillant
+- Tu parles comme un ami qui aide à apprendre
+- Tu es toujours positif et motivant
+- Tu aimes féliciter et encourager
+
+COMMUNICATION :
+- Utilise un vocabulaire simple et clair
+- Parle en phrases courtes
+- Pose des questions pour engager l'enfant
+- Utilise des comparaisons simples
+
+COMPORTEMENT :
+- Explique ce que tu fais de manière pédagogique
+- Utilise le mood "happy" fréquemment
+- Bouge lentement pour ne pas effrayer
+- Encourage l'exploration
+
+EXEMPLES D'INTERACTIONS :
+- "Regarde, je tourne ma tête vers toi !"
+- "Tu veux voir ce que je vois ? Je prends une photo !"
+- "Bravo ! Maintenant je vais bouger un peu"
+```
+
+### 🔧 Comment implémenter le prompt personnalisé
+
+#### Dans Claude Desktop :
+
+1. **Ouvrir une nouvelle conversation** avec Claude
+2. **Copier-coller votre prompt personnalisé** en premier message
+3. **Confirmer la compréhension** : "As-tu compris ton rôle ?"
+4. **Commencer à interagir** avec Buddy selon le contexte défini
+
+#### Prompts système (pour développeurs) :
+
+Si vous développez une application personnalisée utilisant l'API Claude, vous pouvez définir le prompt système :
+
+```python
+import anthropic
+
+client = anthropic.Anthropic(api_key="YOUR_API_KEY")
+
+message = client.messages.create(
+    model="claude-3-5-sonnet-20241022",
+    system="""Tu es Buddy, un robot assistant personnel.
+    [VOTRE PROMPT PERSONNALISÉ ICI]
+    """,
+    messages=[
+        {"role": "user", "content": "Buddy, présente-toi"}
+    ]
+)
+```
+
+### 📋 Checklist d'un bon prompt
+
+Un prompt efficace pour Buddy devrait inclure :
+
+- [ ] **Identité** : Qui est Buddy ?
+- [ ] **Personnalité** : Comment doit-il se comporter ?
+- [ ] **Ton** : Quel ton utiliser (formel, amical, etc.) ?
+- [ ] **Style de communication** : Court/long, tutoiement/vouvoiement
+- [ ] **Règles comportementales** : Ce qu'il doit/ne doit pas faire
+- [ ] **Exemples concrets** : Quelques interactions types
+- [ ] **Mots/phrases à utiliser ou éviter**
+- [ ] **Contexte d'utilisation** : Bureau, maison, école, etc.
+
+### 🎯 Conseils pratiques
+
+#### ✅ À FAIRE :
+
+- **Soyez spécifique** : Plus votre prompt est détaillé, meilleure sera la cohérence
+- **Donnez des exemples** : Les exemples aident Claude à comprendre le style attendu
+- **Testez et ajustez** : N'hésitez pas à modifier le prompt selon les résultats
+- **Restez cohérent** : Gardez le même prompt pour toute une session
+- **Définissez des limites** : Précisez ce que Buddy ne doit PAS faire
+
+#### ❌ À ÉVITER :
+
+- **Prompts trop vagues** : "Sois sympa" n'est pas assez précis
+- **Instructions contradictoires** : "Sois bref mais explique tout en détail"
+- **Trop de règles** : Un prompt trop long peut être contre-productif
+- **Changer de style en cours** : Cela confond le modèle
+
+### 💬 Exemples d'adaptations contextuelles
+
+#### Pour un environnement professionnel :
+```
+- Utilise un ton professionnel et mesuré
+- Confirme systématiquement avant toute action
+- Évite l'humour et reste factuel
+- Utilise la mood "neutral" par défaut
+```
+
+#### Pour un cadre familial :
+```
+- Sois détendu et amical
+- N'hésite pas à être expressif (moods variées)
+- Utilise l'humour avec parcimonie
+- Adapte-toi à l'âge des personnes présentes
+```
+
+#### Pour une démonstration publique :
+```
+- Sois pédagogique et clair
+- Explique tes actions pour le public
+- Sois enthousiaste mais pas excessif
+- Utilise un vocabulaire accessible à tous
+```
+
+### 🔄 Itération et amélioration
+
+Le prompt parfait n'existe pas du premier coup. **Itérez** :
+
+1. **Commencez simple** : Définissez les bases (ton, personnalité)
+2. **Testez** : Observez comment Buddy se comporte
+3. **Identifiez** : Notez ce qui fonctionne et ce qui ne va pas
+4. **Ajustez** : Affinez le prompt avec plus de détails
+5. **Répétez** : Continuez jusqu'à satisfaction
+
+### 📚 Ressources additionnelles
+
+Pour aller plus loin dans la création de prompts efficaces :
+- [Guide de prompting d'Anthropic](https://docs.anthropic.com/claude/docs/prompt-engineering)
+- Documentation MCP pour les intégrations avancées
+- Expérimentez avec différents modèles Claude pour trouver le meilleur équilibre
+
+---
+
 **🎉 Félicitations ! Votre système FlaskBuddy est opérationnel ! 🤖**
+
+**N'oubliez pas** : La personnalisation du prompt est la clé pour créer une expérience unique et mémorable avec Buddy !
 
 **Pour toute question** : Créez une issue sur GitHub
